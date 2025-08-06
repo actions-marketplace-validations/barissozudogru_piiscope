@@ -1,0 +1,16 @@
+FROM node:18
+
+WORKDIR /code
+
+COPY gdpr_privacy_app/app/package.json ./
+COPY gdpr_privacy_app/app/webpack.config.js ./
+COPY gdpr_privacy_app/app/public ./public
+COPY gdpr_privacy_app/app/src ./src
+
+RUN npm install
+RUN npm run build
+RUN npm install -g serve
+
+EXPOSE 3000
+
+CMD ["serve", "-s", "dist", "-l", "3000"]

@@ -1,0 +1,10 @@
+FROM python:3.11-slim
+
+WORKDIR /code
+
+COPY gdpr_privacy_app/api/requirements.txt ./
+RUN pip install --no-cache-dir -r requirements.txt
+
+COPY gdpr_privacy_app /code/gdpr_privacy_app
+
+CMD ["celery", "-A", "gdpr_privacy_app.api.tasks.celery_app", "worker", "--loglevel=info"]

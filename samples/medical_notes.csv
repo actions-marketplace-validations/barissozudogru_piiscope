@@ -1,0 +1,5 @@
+patient_id,name,email,phone,dob,diagnosis,notes
+1,John Doe,john.doe@example.com,+49-89-12345678,1980-01-15,Hypertension,"Patient complains of headaches and high blood pressure."
+2,Jane Smith,jane.smith@example.com,+49-160-9876543,1990-05-23,Diabetes,"Blood sugar levels elevated; prescribed Metformin."
+3,Max Müller,max.mueller@example.com,+49-30-555777,1975-09-10,Asthma,"Uses inhaler twice daily."
+4,Anna Schulz,anna.schulz@example.com,+49-221-443322,1985-12-05,Depression,"Referred to psychologist."
