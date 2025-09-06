@@ -11,7 +11,7 @@ from typing import List, Optional, Dict, Any
 
 from pydantic import BaseModel, EmailStr, Field
 
-from .models import RoleEnum, ScanStatus
+from models import RoleEnum, ScanStatus, DataSourceType, ConnectionStatus
 
 
 class Token(BaseModel):
@@ -65,16 +65,57 @@ class ProfileOut(ProfileBase):
         orm_mode = True
 
 
+# Data Source schemas
+class DataSourceBase(BaseModel):
+    name: str = Field(..., min_length=1, max_length=100)
+    description: Optional[str] = Field(None, max_length=255)
+    source_type: DataSourceType
+
+
+class DataSourceCreate(DataSourceBase):
+    connection_config: Dict[str, Any] = Field(..., description="Connection configuration")
+
+
+class DataSourceUpdate(BaseModel):
+    name: Optional[str] = Field(None, min_length=1, max_length=100)
+    description: Optional[str] = Field(None, max_length=255)
+    connection_config: Optional[Dict[str, Any]] = None
+
+
+class DataSourceOut(DataSourceBase):
+    id: int
+    user_id: int
+    status: ConnectionStatus
+    last_tested_at: Optional[datetime]
+    test_error: Optional[str]
+    created_at: datetime
+    updated_at: datetime
+
+    class Config:
+        orm_mode = True
+
+
+class ConnectionTestResult(BaseModel):
+    success: bool
+    message: str
+    details: Optional[Dict[str, Any]] = None
+
+
 class ScanJobCreate(BaseModel):
     profile_id: int
-    file_name: str
-    # The file itself is uploaded via multipart/form-data; no field here
+    data_source_id: Optional[int] = None
+    file_name: Optional[str] = None
+    table_name: Optional[str] = Field(None, description="Database table name to scan")
+    query: Optional[str] = Field(None, description="Custom SQL query to scan")
 
 
 class ScanJobOut(BaseModel):
     id: int
     profile_id: int
-    file_name: str
+    data_source_id: Optional[int]
+    file_name: Optional[str]
+    table_name: Optional[str]
+    query: Optional[str]
     status: ScanStatus
     progress: float
     started_at: Optional[datetime]
@@ -116,3 +157,7 @@ class ReportOut(BaseModel):
 
     class Config:
         orm_mode = True
+
+
+class MessageResponse(BaseModel):
+    message: str

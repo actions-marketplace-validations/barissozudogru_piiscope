@@ -6,6 +6,7 @@ validation for endpoints.
 """
 from __future__ import annotations
 
+import logging
 from datetime import timedelta
 from typing import List, Optional
 
@@ -13,10 +14,14 @@ from fastapi import Depends, HTTPException, status
 from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
 from jose import JWTError, jwt
 from sqlalchemy.orm import Session
+from sqlalchemy.exc import SQLAlchemyError
 
 from .config import settings
 from . import models, schemas, utils
 from .database import get_db
+from .exceptions import AuthenticationError, AuthorizationError, DatabaseError
+
+logger = logging.getLogger(__name__)
 
 
 # OAuth2 scheme to parse bearer tokens from Authorization header
@@ -25,12 +30,25 @@ oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/auth/login")
 
 def authenticate_user(db: Session, username: str, password: str) -> Optional[models.User]:
     """Verify a user's password and return the User object if valid."""
-    user = db.query(models.User).filter(models.User.username == username).first()
-    if not user:
-        return None
-    if not utils.verify_password(password, user.password_hash):
-        return None
-    return user
+    try:
+        user = db.query(models.User).filter(models.User.username == username).first()
+        if not user:
+            logger.warning(f"Authentication failed: user '{username}' not found")
+            return None
+        
+        if not utils.verify_password(password, user.password_hash):
+            logger.warning(f"Authentication failed: invalid password for user '{username}'")
+            return None
+        
+        logger.info(f"User '{username}' authenticated successfully")
+        return user
+    
+    except SQLAlchemyError as e:
+        logger.error(f"Database error during authentication: {str(e)}")
+        raise DatabaseError("Authentication failed due to database error")
+    except Exception as e:
+        logger.error(f"Unexpected error during authentication: {str(e)}")
+        raise AuthenticationError("Authentication failed")
 
 
 def create_access_token_for_user(user: models.User) -> str:
@@ -46,19 +64,39 @@ async def get_current_user(db: Session = Depends(get_db), token: str = Depends(o
         detail="Could not validate credentials",
         headers={"WWW-Authenticate": "Bearer"},
     )
+    
     try:
         payload = jwt.decode(token, settings.jwt_secret_key, algorithms=[settings.jwt_algorithm])
         username: str = payload.get("sub")
         role: str = payload.get("role")
+        
         if username is None or role is None:
+            logger.warning("Invalid token: missing username or role")
             raise credentials_exception
+            
         token_data = schemas.TokenData(username=username, role=role)
-    except JWTError:
+        
+    except JWTError as e:
+        logger.warning(f"JWT validation failed: {str(e)}")
         raise credentials_exception
-    user = db.query(models.User).filter(models.User.username == token_data.username).first()
-    if user is None:
+    except Exception as e:
+        logger.error(f"Unexpected error during token validation: {str(e)}")
         raise credentials_exception
-    return user
+    
+    try:
+        user = db.query(models.User).filter(models.User.username == token_data.username).first()
+        if user is None:
+            logger.warning(f"User '{token_data.username}' from token not found in database")
+            raise credentials_exception
+        
+        return user
+        
+    except SQLAlchemyError as e:
+        logger.error(f"Database error during user lookup: {str(e)}")
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="Service temporarily unavailable"
+        )
 
 
 def role_required(*allowed_roles: models.RoleEnum):

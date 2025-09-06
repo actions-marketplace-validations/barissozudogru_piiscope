@@ -10,7 +10,7 @@ from __future__ import annotations
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker, declarative_base
 
-from .config import settings
+from config import settings
 
 
 # Create the SQLAlchemy engine; pool_pre_ping ensures that dead

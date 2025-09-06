@@ -192,15 +192,37 @@ class DetectionEngine:
         :param callback: Function called with the record index and list of findings for each row.
         :param chunksize: Number of rows per chunk.
         """
-        reader = pd.read_csv(file_path, chunksize=chunksize, dtype=str, keep_default_na=False)
-        record_index = 0
-        for chunk in reader:
-            for _, row in chunk.iterrows():
-                row_dict = row.to_dict()
-                findings = self.scan_row(row_dict, record_index)
-                if findings:
-                    callback(record_index, findings)
-                record_index += 1
+        import time
+        start_time = time.time()
+        processed_rows = 0
+        
+        try:
+            reader = pd.read_csv(file_path, chunksize=chunksize, dtype=str, keep_default_na=False)
+            record_index = 0
+            
+            for chunk in reader:
+                chunk_start = time.time()
+                chunk_findings = 0
+                
+                for _, row in chunk.iterrows():
+                    row_dict = row.to_dict()
+                    findings = self.scan_row(row_dict, record_index)
+                    if findings:
+                        callback(record_index, findings)
+                        chunk_findings += len(findings)
+                    record_index += 1
+                    processed_rows += 1
+                
+                # Log chunk processing metrics
+                chunk_time = time.time() - chunk_start
+                logger.debug(f"Processed chunk of {len(chunk)} rows in {chunk_time:.2f}s, found {chunk_findings} findings")
+                
+        except Exception as e:
+            logger.error(f"Error scanning CSV file {file_path}: {str(e)}")
+            raise
+        finally:
+            total_time = time.time() - start_time
+            logger.info(f"Completed CSV scan: {processed_rows} rows in {total_time:.2f}s")
 
     def scan_json(self, file_path: str, callback: Callable[[int, List[Finding]], None]) -> None:
         """Scan a newline‑delimited JSON file (NDJSON).

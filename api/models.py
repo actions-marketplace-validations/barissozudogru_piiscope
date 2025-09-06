@@ -26,7 +26,7 @@ from sqlalchemy import (
 )
 from sqlalchemy.orm import relationship
 
-from .database import Base
+from database import Base
 
 
 class RoleEnum(str, enum.Enum):
@@ -80,8 +80,11 @@ class ScanJob(Base):
     id = Column(Integer, primary_key=True, index=True)
     user_id = Column(Integer, ForeignKey("users.id"), nullable=False)
     profile_id = Column(Integer, ForeignKey("profiles.id"), nullable=False)
-    file_name = Column(String(255), nullable=False)
-    file_path = Column(String(512), nullable=False)
+    data_source_id = Column(Integer, ForeignKey("data_sources.id"), nullable=True)
+    file_name = Column(String(255), nullable=True)  # Optional for external data sources
+    file_path = Column(String(512), nullable=True)  # Optional for external data sources
+    table_name = Column(String(255), nullable=True)  # For database tables
+    query = Column(Text, nullable=True)  # For custom SQL queries
     status = Column(Enum(ScanStatus), default=ScanStatus.PENDING, nullable=False)
     progress = Column(Float, default=0.0)
     error_message = Column(Text, nullable=True)
@@ -91,6 +94,7 @@ class ScanJob(Base):
 
     user = relationship("User", back_populates="scan_jobs")
     profile = relationship("Profile", back_populates="scan_jobs")
+    data_source = relationship("DataSource", back_populates="scan_jobs")
     findings = relationship("Finding", back_populates="job", cascade="all, delete-orphan")
     metrics = relationship("Metric", back_populates="job", uselist=False, cascade="all, delete-orphan")
     reports = relationship("Report", back_populates="job", cascade="all, delete-orphan")
@@ -149,6 +153,53 @@ class Report(Base):
     created_at = Column(DateTime, default=datetime.utcnow)
 
     job = relationship("ScanJob", back_populates="reports")
+
+
+class DataSourceType(str, enum.Enum):
+    GCP_BIGQUERY = "gcp_bigquery"
+    GCP_CLOUD_SQL = "gcp_cloud_sql"
+    GCP_SPANNER = "gcp_spanner"
+    GCP_FIRESTORE = "gcp_firestore"
+    AWS_RDS = "aws_rds"
+    AWS_REDSHIFT = "aws_redshift"
+    AWS_DYNAMODB = "aws_dynamodb"
+    AZURE_SQL = "azure_sql"
+    AZURE_COSMOS = "azure_cosmos"
+    SAP_HANA = "sap_hana"
+    SAP_ASE = "sap_ase"
+    ORACLE = "oracle"
+    SQL_SERVER = "sql_server"
+    MYSQL = "mysql"
+    POSTGRESQL = "postgresql"
+    MONGODB = "mongodb"
+    SNOWFLAKE = "snowflake"
+    DATABRICKS = "databricks"
+
+
+class ConnectionStatus(str, enum.Enum):
+    ACTIVE = "active"
+    INACTIVE = "inactive"
+    ERROR = "error"
+    TESTING = "testing"
+
+
+class DataSource(Base):
+    __tablename__ = "data_sources"
+
+    id = Column(Integer, primary_key=True, index=True)
+    user_id = Column(Integer, ForeignKey("users.id"), nullable=False)
+    name = Column(String(100), nullable=False)
+    description = Column(String(255), nullable=True)
+    source_type = Column(Enum(DataSourceType), nullable=False)
+    connection_config = Column(JSON, nullable=False)  # Encrypted connection details
+    status = Column(Enum(ConnectionStatus), default=ConnectionStatus.INACTIVE)
+    last_tested_at = Column(DateTime, nullable=True)
+    test_error = Column(Text, nullable=True)
+    created_at = Column(DateTime, default=datetime.utcnow)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+    user = relationship("User")
+    scan_jobs = relationship("ScanJob", back_populates="data_source")
 
 
 class AuditLog(Base):
