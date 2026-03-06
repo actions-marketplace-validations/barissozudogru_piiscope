@@ -35,4 +35,4 @@ def log_audit_event(db: Session, user_id: Optional[int], action: str, target: Op
         timestamp=datetime.now(timezone.utc),
     )
     db.add(entry)
-    db.commit()
+    db.flush()

@@ -340,7 +340,7 @@ PATTERNS: Dict[str, PatternDefinition] = {
     "vat_tr": PatternDefinition(
         r"\b[0-9]{10}\b",
         "Turkish Tax / Vergi Kimlik Numarasi (VKN)",
-        0.5,
+        0.15,
         pii_category="financial",
     ),
 }

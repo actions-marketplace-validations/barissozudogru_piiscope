@@ -18,6 +18,7 @@ from __future__ import annotations
 
 import hashlib
 import hmac
+import ipaddress
 import json
 import logging
 import time
@@ -25,10 +26,73 @@ from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from enum import Enum
 from typing import Any, Dict, List, Optional
+from urllib.parse import urlparse
 from urllib.request import Request, urlopen
 from urllib.error import URLError, HTTPError
 
 logger = logging.getLogger(__name__)
+
+
+# ---------------------------------------------------------------------------
+# SSRF protection
+# ---------------------------------------------------------------------------
+
+_BLOCKED_HOSTS = {
+    "169.254.169.254",  # AWS/GCP/Azure cloud metadata
+    "metadata.google.internal",
+    "metadata",
+}
+
+_BLOCKED_NETWORKS = [
+    ipaddress.ip_network("10.0.0.0/8"),
+    ipaddress.ip_network("172.16.0.0/12"),
+    ipaddress.ip_network("192.168.0.0/16"),
+    ipaddress.ip_network("127.0.0.0/8"),
+    ipaddress.ip_network("169.254.0.0/16"),  # link-local
+    ipaddress.ip_network("::1/128"),           # IPv6 loopback
+    ipaddress.ip_network("fc00::/7"),          # IPv6 unique-local
+    ipaddress.ip_network("fe80::/10"),         # IPv6 link-local
+]
+
+
+def _validate_webhook_url(url: str) -> None:
+    """Raise ValueError if the URL targets a private/internal destination.
+
+    Blocks:
+      - Non-HTTP(S) schemes
+      - localhost / loopback hostnames and addresses
+      - Private RFC-1918 networks
+      - Link-local addresses (169.254.x.x, fe80::/10)
+      - Cloud metadata endpoints (169.254.169.254, metadata.google.internal)
+    """
+    parsed = urlparse(url)
+
+    if parsed.scheme not in ("http", "https"):
+        raise ValueError(f"Webhook URL scheme must be http or https, got '{parsed.scheme}'")
+
+    hostname = parsed.hostname
+    if not hostname:
+        raise ValueError("Webhook URL must include a valid hostname")
+
+    hostname_lower = hostname.lower()
+
+    # Block by hostname string
+    if hostname_lower in ("localhost", "localhost.localdomain") or hostname_lower in _BLOCKED_HOSTS:
+        raise ValueError(f"Webhook URL hostname '{hostname}' is not allowed")
+
+    # Block by IP address range
+    try:
+        addr = ipaddress.ip_address(hostname)
+        for network in _BLOCKED_NETWORKS:
+            if addr in network:
+                raise ValueError(
+                    f"Webhook URL resolves to a private/reserved address ({addr}) which is not allowed"
+                )
+    except ValueError as exc:
+        # Re-raise if it was our own block message; otherwise it was just not
+        # an IP address literal (DNS hostname), which is fine at URL-parse time.
+        if "not allowed" in str(exc):
+            raise
 
 
 # ---------------------------------------------------------------------------
@@ -138,6 +202,24 @@ def _deliver(
     dependency in the production code path.  For production usage with
     async support, swap this for an async HTTP client.
     """
+    # Validate the destination URL before making any network request.
+    try:
+        _validate_webhook_url(webhook.url)
+    except ValueError as exc:
+        logger.error(
+            "Webhook %s blocked: SSRF check failed for URL %s: %s",
+            webhook.id, webhook.url, exc,
+        )
+        return DeliveryResult(
+            webhook_id=webhook.id,
+            event=WebhookEvent(payload["event"]),
+            url=webhook.url,
+            success=False,
+            attempts=0,
+            status_code=None,
+            error=f"URL validation failed: {exc}",
+        )
+
     body = json.dumps(payload, default=str).encode("utf-8")
     signature = _sign_payload(webhook.secret, body) if webhook.secret else None
 

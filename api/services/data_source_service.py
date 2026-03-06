@@ -110,7 +110,7 @@ class DataSourceService:
         if not data_source:
             return None
 
-        update_data = data.dict(exclude_unset=True)
+        update_data = data.model_dump(exclude_unset=True)
         
         # Encrypt new connection config if provided
         if 'connection_config' in update_data:
