@@ -154,10 +154,16 @@ class DeliveryResult:
 
 _MAX_RETRIES = 5
 _BASE_DELAY = 1.0        # seconds
-_MAX_DELAY = 60.0        # seconds
+_MAX_DELAY = 30.0        # seconds – tightened to keep total budget reasonable
 _BACKOFF_FACTOR = 2.0
 _CONNECT_TIMEOUT = 5     # seconds
 _READ_TIMEOUT = 10       # seconds
+# Hard ceiling on the total time _deliver() may occupy a thread/worker.
+# With 5 retries and the sequence 1, 2, 4, 8, 16 s the raw sum is 31 s;
+# adding per-attempt I/O (up to 15 s each) would push a single call past
+# 100 s.  The budget below gives enough room for the full retry sequence
+# while preventing indefinite blocking.
+_MAX_TOTAL_SECONDS = 90.0
 
 
 def _compute_delay(attempt: int) -> float:
@@ -234,8 +240,18 @@ def _deliver(
 
     last_error: Optional[str] = None
     last_status: Optional[int] = None
+    deadline = time.monotonic() + _MAX_TOTAL_SECONDS
 
     for attempt in range(_MAX_RETRIES):
+        # Abort if we have already consumed the total time budget.
+        if time.monotonic() >= deadline:
+            last_error = "delivery aborted: total timeout exceeded"
+            logger.warning(
+                "Webhook %s: %s after %d attempt(s)",
+                webhook.id, last_error, attempt,
+            )
+            break
+
         try:
             req = Request(
                 webhook.url,
@@ -288,11 +304,20 @@ def _deliver(
 
         if attempt < _MAX_RETRIES - 1:
             delay = _compute_delay(attempt)
+            remaining = deadline - time.monotonic()
+            if remaining <= 0:
+                logger.warning(
+                    "Webhook %s: total timeout reached before retry sleep, aborting",
+                    webhook.id,
+                )
+                break
+            # Never sleep longer than what the remaining budget allows.
+            sleep_for = min(delay, remaining)
             logger.debug(
                 "Webhook %s: retrying in %.1fs (attempt %d/%d)",
-                webhook.id, delay, attempt + 1, _MAX_RETRIES,
+                webhook.id, sleep_for, attempt + 1, _MAX_RETRIES,
             )
-            time.sleep(delay)
+            time.sleep(sleep_for)
 
     logger.error(
         "Webhook %s failed to deliver event '%s' after %d attempts: %s",
