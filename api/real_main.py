@@ -20,15 +20,32 @@ import psycopg2
 from sqlalchemy import create_engine, text
 import pandas as pd
 
-# Set environment variables
-os.environ["DATABASE_URL"] = "sqlite:///./data_security_checker.db"
-os.environ["REDIS_URL"] = "redis://localhost:6379/0" 
-os.environ["JWT_SECRET_KEY"] = "your-super-secret-jwt-key-here-minimum-32-characters-long"
-os.environ["ENCRYPTION_KEY"] = "cGFzc3dvcmQxMjM0NTY3ODkwMTIzNDU2Nzg5MDEyMzQ="
+_SAFE_IDENTIFIER_RE = re.compile(r'^[A-Za-z_][A-Za-z0-9_$]*$')
 
-# Initialize encryption
-encryption_key = Fernet.generate_key()
-cipher_suite = Fernet(encryption_key)
+
+def _validate_table_name(name: str) -> None:
+    """Raise ValueError if *name* is not a safe SQL identifier.
+
+    Only ASCII letters, digits, underscores and dollar signs are permitted,
+    and the name must start with a letter or underscore.  This prevents SQL
+    injection when the identifier is interpolated into a query string.
+    """
+    if not _SAFE_IDENTIFIER_RE.match(name):
+        raise ValueError(f"Invalid table name: {name!r}")
+
+
+# All configuration is read from environment variables.
+# DATABASE_URL falls back to a local SQLite path for development convenience;
+# the remaining secrets must be set explicitly before starting the process.
+_DATABASE_URL = os.getenv("DATABASE_URL", "sqlite:///./data_security_checker.db")
+_REDIS_URL = os.getenv("REDIS_URL") or ""
+_JWT_SECRET_KEY = os.getenv("JWT_SECRET_KEY") or ""
+_ENCRYPTION_KEY = os.getenv("ENCRYPTION_KEY")
+if _ENCRYPTION_KEY:
+    cipher_suite = Fernet(_ENCRYPTION_KEY.encode() if isinstance(_ENCRYPTION_KEY, str) else _ENCRYPTION_KEY)
+else:
+    encryption_key = Fernet.generate_key()
+    cipher_suite = Fernet(encryption_key)
 
 app = FastAPI(
     title="Data Security Checker API",
@@ -432,18 +449,27 @@ async def perform_scan(scan_id: str, scan_request: ScanRequest):
             })
             
             if scan_request.table_name:
-                # Scan specific table
-                df = pd.read_sql(f"SELECT * FROM {scan_request.table_name} LIMIT 1000", connection)
+                # Validate table name against an allowlist of safe identifier characters
+                # to prevent SQL injection via table name interpolation.
+                _validate_table_name(scan_request.table_name)
+                df = pd.read_sql(
+                    f"SELECT * FROM `{scan_request.table_name}` LIMIT 1000",  # noqa: S608
+                    connection,
+                )
                 findings.extend(PrivacyScanner.scan_dataframe(df, scan_request.table_name))
             else:
                 # Scan all tables
                 with connection.cursor() as cursor:
                     cursor.execute("SHOW TABLES")
                     tables = [row[0] for row in cursor.fetchall()]
-                
+
                 for table in tables[:5]:  # Limit to first 5 tables for demo
                     try:
-                        df = pd.read_sql(f"SELECT * FROM {table} LIMIT 100", connection)
+                        _validate_table_name(table)
+                        df = pd.read_sql(
+                            f"SELECT * FROM `{table}` LIMIT 100",  # noqa: S608
+                            connection,
+                        )
                         findings.extend(PrivacyScanner.scan_dataframe(df, table))
                     except Exception as e:
                         print(f"Error scanning table {table}: {e}")

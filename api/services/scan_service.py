@@ -9,7 +9,7 @@ import os
 import tempfile
 from pathlib import Path
 from typing import List, Optional, Dict, Any
-from datetime import datetime
+from datetime import datetime, timezone
 
 from sqlalchemy.orm import Session
 from sqlalchemy.exc import SQLAlchemyError
@@ -52,7 +52,7 @@ class ScanService:
             temp_dir.mkdir(exist_ok=True)
             
             # Generate unique filename
-            timestamp = datetime.utcnow().strftime("%Y%m%d_%H%M%S")
+            timestamp = datetime.now(timezone.utc).strftime("%Y%m%d_%H%M%S")
             unique_filename = f"{user.id}_{timestamp}_{sanitized_filename}"
             file_path = temp_dir / unique_filename
             
@@ -136,9 +136,9 @@ class ScanService:
                 job.status = status
                 
                 if status == models.ScanStatus.RUNNING and not job.started_at:
-                    job.started_at = datetime.utcnow()
+                    job.started_at = datetime.now(timezone.utc)
                 elif status in [models.ScanStatus.COMPLETED, models.ScanStatus.FAILED, models.ScanStatus.CANCELLED]:
-                    job.finished_at = datetime.utcnow()
+                    job.finished_at = datetime.now(timezone.utc)
             
             self.db.commit()
             
@@ -207,7 +207,7 @@ class ScanService:
             
             job.status = models.ScanStatus.FAILED
             job.error_message = error_message[:1000]  # Truncate long error messages
-            job.finished_at = datetime.utcnow()
+            job.finished_at = datetime.now(timezone.utc)
             
             self.db.commit()
             
@@ -305,9 +305,9 @@ class ScanService:
     def cleanup_expired_scans(self, max_age_hours: int = 24) -> int:
         """Clean up old scan jobs and their files."""
         try:
-            from datetime import datetime, timedelta
-            
-            cutoff_date = datetime.utcnow() - timedelta(hours=max_age_hours)
+            from datetime import timedelta
+
+            cutoff_date = datetime.now(timezone.utc) - timedelta(hours=max_age_hours)
             
             # Find expired jobs
             expired_jobs = self.db.query(models.ScanJob).filter(

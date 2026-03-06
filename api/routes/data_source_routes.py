@@ -10,14 +10,14 @@ from typing import List
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 
-from database import get_db
-from auth import get_current_user
-from models import User
-from schemas import (
-    DataSourceOut, DataSourceCreate, DataSourceUpdate, 
-    ConnectionTestResult, MessageResponse
+from ..database import get_db
+from ..auth import get_current_user
+from ..models import User
+from ..schemas import (
+    DataSourceOut, DataSourceCreate, DataSourceUpdate,
+    ConnectionTestResult, MessageResponse,
 )
-from services.data_source_service import DataSourceService, DataSourceConnectionError
+from ..services.data_source_service import DataSourceService, DataSourceConnectionError
 
 router = APIRouter()
 

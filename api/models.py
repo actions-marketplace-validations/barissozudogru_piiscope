@@ -9,7 +9,7 @@ this project defines the schema programmatically and uses SQLAlchemy
 from __future__ import annotations
 
 import enum
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Optional, List
 
 from sqlalchemy import (
@@ -26,7 +26,7 @@ from sqlalchemy import (
 )
 from sqlalchemy.orm import relationship
 
-from database import Base
+from .database import Base
 
 
 class RoleEnum(str, enum.Enum):
@@ -43,8 +43,8 @@ class User(Base):
     email = Column(String(100), unique=True, nullable=True)
     password_hash = Column(String(128), nullable=False)
     role = Column(Enum(RoleEnum), default=RoleEnum.USER, nullable=False)
-    created_at = Column(DateTime, default=datetime.utcnow)
-    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
+    updated_at = Column(DateTime, default=lambda: datetime.now(timezone.utc), onupdate=lambda: datetime.now(timezone.utc))
 
     scan_jobs = relationship("ScanJob", back_populates="user")
     audit_logs = relationship("AuditLog", back_populates="user")
@@ -59,8 +59,8 @@ class Profile(Base):
     description = Column(String(255), nullable=True)
     definition = Column(JSON, nullable=False)  # Stores patterns, dictionaries, weights
     created_by_id = Column(Integer, ForeignKey("users.id"), nullable=True)
-    created_at = Column(DateTime, default=datetime.utcnow)
-    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
+    updated_at = Column(DateTime, default=lambda: datetime.now(timezone.utc), onupdate=lambda: datetime.now(timezone.utc))
 
     created_by = relationship("User")
     scan_jobs = relationship("ScanJob", back_populates="profile")
@@ -90,7 +90,7 @@ class ScanJob(Base):
     error_message = Column(Text, nullable=True)
     started_at = Column(DateTime, nullable=True)
     finished_at = Column(DateTime, nullable=True)
-    created_at = Column(DateTime, default=datetime.utcnow)
+    created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
 
     user = relationship("User", back_populates="scan_jobs")
     profile = relationship("Profile", back_populates="scan_jobs")
@@ -112,6 +112,10 @@ class Finding(Base):
     severity = Column(String(20), nullable=False)
     confidence = Column(Float, nullable=False)
     evidence = Column(String(255), nullable=True)
+    # User can mark a finding as a false positive to exclude it from future reports
+    is_false_positive = Column(Boolean, default=False, nullable=False)
+    # Optional metadata (ip classification, etc.)
+    finding_metadata = Column(JSON, nullable=True)
 
     job = relationship("ScanJob", back_populates="findings")
 
@@ -125,7 +129,11 @@ class Metric(Base):
     k_anonymity = Column(Integer, nullable=True)
     l_diversity = Column(Integer, nullable=True)
     t_closeness = Column(Float, nullable=True)
-    created_at = Column(DateTime, default=datetime.utcnow)
+    # Re-identification risk scores (prosecutor, journalist, marketer)
+    reidentification_risk = Column(JSON, nullable=True)
+    # Full Privacy Impact Assessment summary
+    privacy_impact_assessment = Column(JSON, nullable=True)
+    created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
 
     job = relationship("ScanJob", back_populates="metrics")
 
@@ -138,7 +146,7 @@ class Mask(Base):
     column_name = Column(String(100), nullable=False)
     mask_type = Column(String(50), nullable=False)
     params = Column(JSON, nullable=True)
-    created_at = Column(DateTime, default=datetime.utcnow)
+    created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
 
     job = relationship("ScanJob", back_populates="masks")
 
@@ -150,7 +158,7 @@ class Report(Base):
     job_id = Column(Integer, ForeignKey("scan_jobs.id", ondelete="CASCADE"), nullable=False)
     html_path = Column(String(512), nullable=False)
     pdf_path = Column(String(512), nullable=True)
-    created_at = Column(DateTime, default=datetime.utcnow)
+    created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
 
     job = relationship("ScanJob", back_populates="reports")
 
@@ -195,8 +203,8 @@ class DataSource(Base):
     status = Column(Enum(ConnectionStatus), default=ConnectionStatus.INACTIVE)
     last_tested_at = Column(DateTime, nullable=True)
     test_error = Column(Text, nullable=True)
-    created_at = Column(DateTime, default=datetime.utcnow)
-    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
+    updated_at = Column(DateTime, default=lambda: datetime.now(timezone.utc), onupdate=lambda: datetime.now(timezone.utc))
 
     user = relationship("User")
     scan_jobs = relationship("ScanJob", back_populates="data_source")
@@ -210,6 +218,6 @@ class AuditLog(Base):
     action = Column(String(50), nullable=False)
     target = Column(String(100), nullable=True)
     details = Column(JSON, nullable=True)
-    timestamp = Column(DateTime, default=datetime.utcnow)
+    timestamp = Column(DateTime, default=lambda: datetime.now(timezone.utc))
 
     user = relationship("User", back_populates="audit_logs")

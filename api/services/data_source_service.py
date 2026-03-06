@@ -9,20 +9,39 @@ from __future__ import annotations
 import json
 import asyncio
 from typing import Dict, Any, Optional, List
-from datetime import datetime
+from datetime import datetime, timezone
 
 from sqlalchemy.orm import Session
 from cryptography.fernet import Fernet
 import sqlalchemy as sa
-from google.cloud import bigquery
-from google.oauth2 import service_account
-import pymysql
-import psycopg2
-import pyodbc
 
-from models import DataSource, DataSourceType, ConnectionStatus, User
-from schemas import DataSourceCreate, DataSourceUpdate, ConnectionTestResult
-from config import settings
+# Optional driver imports - loaded lazily inside connection helpers so the
+# service module can be imported even when not all drivers are installed.
+try:
+    from google.cloud import bigquery  # type: ignore[import]
+    from google.oauth2 import service_account  # type: ignore[import]
+except ImportError:
+    bigquery = None  # type: ignore[assignment]
+    service_account = None  # type: ignore[assignment]
+
+try:
+    import pymysql  # type: ignore[import]
+except ImportError:
+    pymysql = None  # type: ignore[assignment]
+
+try:
+    import psycopg2  # type: ignore[import]
+except ImportError:
+    psycopg2 = None  # type: ignore[assignment]
+
+try:
+    import pyodbc  # type: ignore[import]
+except ImportError:
+    pyodbc = None  # type: ignore[assignment]
+
+from ..models import DataSource, DataSourceType, ConnectionStatus, User
+from ..schemas import DataSourceCreate, DataSourceUpdate, ConnectionTestResult
+from ..config import settings
 # from exceptions import BasePrivacyException
 
 class BasePrivacyException(Exception):
@@ -100,7 +119,7 @@ class DataSourceService:
         for field, value in update_data.items():
             setattr(data_source, field, value)
         
-        data_source.updated_at = datetime.utcnow()
+        data_source.updated_at = datetime.now(timezone.utc)
         self.db.commit()
         self.db.refresh(data_source)
         return data_source
@@ -141,7 +160,7 @@ class DataSourceService:
                 data_source.status = ConnectionStatus.ERROR
                 data_source.test_error = result.message
             
-            data_source.last_tested_at = datetime.utcnow()
+            data_source.last_tested_at = datetime.now(timezone.utc)
             self.db.commit()
             
             return result
@@ -150,7 +169,7 @@ class DataSourceService:
             # Update status to error
             data_source.status = ConnectionStatus.ERROR
             data_source.test_error = str(e)
-            data_source.last_tested_at = datetime.utcnow()
+            data_source.last_tested_at = datetime.now(timezone.utc)
             self.db.commit()
             
             return ConnectionTestResult(

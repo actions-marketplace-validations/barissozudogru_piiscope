@@ -6,7 +6,7 @@ authorization, and user profile management.
 from __future__ import annotations
 
 from typing import List, Optional
-from datetime import datetime
+from datetime import datetime, timezone
 
 from sqlalchemy.orm import Session
 from sqlalchemy.exc import SQLAlchemyError
@@ -183,7 +183,7 @@ class UserService:
                     new_role=user.role.value
                 )
             
-            user.updated_at = datetime.utcnow()
+            user.updated_at = datetime.now(timezone.utc)
             self.db.commit()
             self.db.refresh(user)
             
