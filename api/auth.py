@@ -109,7 +109,7 @@ def role_required(*allowed_roles: models.RoleEnum):
             )
         return current_user
 
-    return Depends(dependency)
+    return dependency
 
 
 async def login_for_access_token(

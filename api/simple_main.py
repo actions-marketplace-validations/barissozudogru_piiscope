@@ -3,11 +3,14 @@ import os
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-# Set environment variables
-os.environ["DATABASE_URL"] = "sqlite:///./data_security_checker.db"
-os.environ["REDIS_URL"] = "redis://localhost:6379/0" 
-os.environ["JWT_SECRET_KEY"] = "your-super-secret-jwt-key-here-minimum-32-characters-long"
-os.environ["ENCRYPTION_KEY"] = "cGFzc3dvcmQxMjM0NTY3ODkwMTIzNDU2Nzg5MDEyMzQ="
+# Environment variables must be set externally (e.g. via .env or Docker secrets).
+# No defaults are provided here to avoid accidentally running with insecure values.
+for _required_var in ("DATABASE_URL", "REDIS_URL", "JWT_SECRET_KEY", "ENCRYPTION_KEY"):
+    if not os.getenv(_required_var):
+        raise RuntimeError(
+            f"Required environment variable {_required_var!r} is not set. "
+            "Set it before starting the application."
+        )
 
 app = FastAPI(
     title="Data Security Checker API",

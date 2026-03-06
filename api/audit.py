@@ -7,7 +7,7 @@ should call ``log_audit_event`` with the appropriate parameters.
 from __future__ import annotations
 
 from typing import Any, Optional
-from datetime import datetime
+from datetime import datetime, timezone
 
 from sqlalchemy.orm import Session
 
@@ -32,7 +32,7 @@ def log_audit_event(db: Session, user_id: Optional[int], action: str, target: Op
         action=action,
         target=target,
         details=details,
-        timestamp=datetime.utcnow(),
+        timestamp=datetime.now(timezone.utc),
     )
     db.add(entry)
     db.commit()

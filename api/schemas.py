@@ -9,9 +9,9 @@ from __future__ import annotations
 from datetime import datetime
 from typing import List, Optional, Dict, Any
 
-from pydantic import BaseModel, EmailStr, Field
+from pydantic import BaseModel, ConfigDict, EmailStr, Field
 
-from models import RoleEnum, ScanStatus, DataSourceType, ConnectionStatus
+from .models import RoleEnum, ScanStatus, DataSourceType, ConnectionStatus
 
 
 class Token(BaseModel):
@@ -34,14 +34,19 @@ class UserCreate(UserBase):
     role: Optional[RoleEnum] = RoleEnum.USER
 
 
+class UserUpdate(BaseModel):
+    email: Optional[EmailStr] = None
+    password: Optional[str] = None
+    role: Optional[RoleEnum] = None
+
+
 class UserOut(UserBase):
+    model_config = ConfigDict(from_attributes=True)
+
     id: int
     role: RoleEnum
     created_at: datetime
     updated_at: datetime
-
-    class Config:
-        orm_mode = True
 
 
 class ProfileBase(BaseModel):
@@ -56,13 +61,12 @@ class ProfileCreate(ProfileBase):
 
 
 class ProfileOut(ProfileBase):
+    model_config = ConfigDict(from_attributes=True)
+
     id: int
     created_at: datetime
     updated_at: datetime
     created_by_id: Optional[int]
-
-    class Config:
-        orm_mode = True
 
 
 # Data Source schemas
@@ -83,6 +87,8 @@ class DataSourceUpdate(BaseModel):
 
 
 class DataSourceOut(DataSourceBase):
+    model_config = ConfigDict(from_attributes=True)
+
     id: int
     user_id: int
     status: ConnectionStatus
@@ -90,9 +96,6 @@ class DataSourceOut(DataSourceBase):
     test_error: Optional[str]
     created_at: datetime
     updated_at: datetime
-
-    class Config:
-        orm_mode = True
 
 
 class ConnectionTestResult(BaseModel):
@@ -110,6 +113,8 @@ class ScanJobCreate(BaseModel):
 
 
 class ScanJobOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
     id: int
     profile_id: int
     data_source_id: Optional[int]
@@ -122,11 +127,10 @@ class ScanJobOut(BaseModel):
     finished_at: Optional[datetime]
     error_message: Optional[str]
 
-    class Config:
-        orm_mode = True
-
 
 class FindingOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
     id: int
     record_index: int
     column_name: str
@@ -134,29 +138,37 @@ class FindingOut(BaseModel):
     severity: str
     confidence: float
     evidence: Optional[str]
+    is_false_positive: bool = False
+    finding_metadata: Optional[Dict[str, Any]] = None
 
-    class Config:
-        orm_mode = True
+
+class ReidentificationRisk(BaseModel):
+    prosecutor_risk: Optional[float] = None
+    journalist_risk: Optional[float] = None
+    marketer_risk: Optional[float] = None
+    risk_level: Optional[str] = None
+    unique_records: Optional[int] = None
+    equivalence_classes: Optional[int] = None
 
 
 class MetricOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
     quasi_identifiers: Optional[List[str]]
     k_anonymity: Optional[int]
     l_diversity: Optional[int]
     t_closeness: Optional[float]
-
-    class Config:
-        orm_mode = True
+    reidentification_risk: Optional[Dict[str, Any]] = None
+    privacy_impact_assessment: Optional[Dict[str, Any]] = None
 
 
 class ReportOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
     id: int
     html_path: str
     pdf_path: Optional[str]
     created_at: datetime
-
-    class Config:
-        orm_mode = True
 
 
 class MessageResponse(BaseModel):

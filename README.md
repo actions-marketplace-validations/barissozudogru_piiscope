@@ -27,7 +27,7 @@ compliance with the **General Data Protection Regulation (GDPR)**.
   prevalence.  It also calculates **k‑anonymity**, **l‑diversity** and
   **t‑closeness** on configurable quasi‑identifier sets to help
   evaluate anonymisation quality, as described in academic
-  literature【873173610014637†L272-L279】.
+  literature.
 * **Remediation actions** – Users can apply hashing, nulling,
   partial redaction, generalisation, date shifting and tokenisation
   on a per‑column or per‑cell basis.  A one‑click export produces a

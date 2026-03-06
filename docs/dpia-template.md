@@ -35,7 +35,7 @@ information specific to your organisation and dataset.
 * **Proportionality:** Only metadata about detected findings is
   retained.  Raw data is processed in streaming mode and discarded
   immediately.  Custom profiles allow controllers to limit detection
-  to specific fields, supporting data minimisation【416861718690933†L201-L203】.
+  to specific fields, supporting data minimisation.
 * **Data subject rights:** Mechanisms exist to support data subject
   access, rectification, erasure, restriction, portability and
   objection (see mapping table).  Controllers must ensure that
@@ -54,7 +54,7 @@ information specific to your organisation and dataset.
    could lead to over‑masking (reducing utility) or under‑masking
    (exposing personal data).  *Likelihood:* medium; *Impact:* medium.
 4. **Excessive storage** – Enabling raw data storage without timely
-   deletion could contravene storage limitation【416861718690933†L207-L214】.
+   deletion could contravene storage limitation.
 5. **Model bias** – NLP models may perform poorly on minority names
    or dialects, potentially resulting in discriminatory outcomes.
 
@@ -62,7 +62,7 @@ information specific to your organisation and dataset.
 
 1. **RBAC and least‑privilege** – Only authorised users can start
    scans or view results.  Roles restrict access to sensitive
-   endpoints.  Access logs support accountability【416861718690933†L220-L221】.
+   endpoints.  Access logs support accountability.
 2. **Encryption** – TLS protects data in transit; disk encryption and
    encryption at the application layer protect data at rest.  Keys
    are stored in environment variables separate from the codebase.

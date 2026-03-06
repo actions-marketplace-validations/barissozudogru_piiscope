@@ -92,12 +92,12 @@ async def update_profile(
     return schemas.ProfileOut.from_orm(profile)
 
 
-@router.delete("/{profile_id}", status_code=status.HTTP_204_NO_CONTENT)
+@router.delete("/{profile_id}", status_code=status.HTTP_204_NO_CONTENT, response_model=None)
 async def delete_profile(
     profile_id: int,
     db: Session = Depends(get_db),
     _: models.User = Depends(auth.role_required(models.RoleEnum.SUPER_ADMIN)),
-) -> None:
+):
     """Delete a profile (super admin only)."""
     profile = db.query(models.Profile).get(profile_id)
     if not profile:

@@ -44,7 +44,7 @@ async def read_current_user(current_user: models.User = Depends(auth.get_current
 async def create_user(
     user_in: schemas.UserCreate,
     db: Session = Depends(get_db),
-    _: models.User = Depends(auth.role_required(models.RoleEnum.super_admin)),
+    _: models.User = Depends(auth.role_required(models.RoleEnum.SUPER_ADMIN)),
 ) -> schemas.UserOut:
     """Create a new user account.
 
@@ -68,7 +68,7 @@ async def create_user(
 @router.get("/users", response_model=List[schemas.UserOut])
 async def list_users(
     db: Session = Depends(get_db),
-    _: models.User = Depends(auth.role_required(models.RoleEnum.super_admin)),
+    _: models.User = Depends(auth.role_required(models.RoleEnum.SUPER_ADMIN)),
 ) -> List[schemas.UserOut]:
     """List all user accounts (Super Admin only)."""
     users = db.query(models.User).all()

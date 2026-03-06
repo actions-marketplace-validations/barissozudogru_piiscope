@@ -6,7 +6,7 @@ import hashlib
 import json
 import os
 import secrets
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from typing import Any, Dict, Optional
 
 from jose import jwt
@@ -75,7 +75,7 @@ def create_access_token(data: Dict[str, Any], expires_delta: timedelta) -> str:
     :return: Encoded JWT string.
     """
     to_encode = data.copy()
-    expire = datetime.utcnow() + expires_delta
+    expire = datetime.now(timezone.utc) + expires_delta
     to_encode.update({"exp": expire})
     encoded_jwt = jwt.encode(to_encode, settings.jwt_secret_key, algorithm=settings.jwt_algorithm)
     return encoded_jwt

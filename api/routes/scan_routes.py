@@ -9,6 +9,7 @@ require authentication; permissions depend on the user's role.
 from __future__ import annotations
 
 import os
+import re
 import shutil
 from typing import List, Optional
 
@@ -208,14 +209,91 @@ async def export_sanitised(
     return {"download_url": f"/scan/download/{out_name}"}
 
 
-@router.get("/download/{file_name}")
-async def download_file(file_name: str) -> FileResponse:
-    """Serve a file from the exports directory.
+@router.patch("/jobs/{job_id}/findings/{finding_id}/false-positive", response_model=schemas.FindingOut)
+async def mark_finding_false_positive(
+    job_id: int,
+    finding_id: int,
+    is_false_positive: bool = True,
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(auth.get_current_user),
+) -> schemas.FindingOut:
+    """Mark or unmark a finding as a false positive.
 
-    The file must exist in the exports folder.  Use cautiously to avoid
-    exposing arbitrary files.
+    False positive findings are preserved in the database but excluded
+    from risk scores and compliance reports. Set is_false_positive=false
+    to reinstate a previously dismissed finding.
     """
-    path = os.path.join(EXPORT_DIR, file_name)
-    if not os.path.isfile(path):
+    job = db.query(models.ScanJob).get(job_id)
+    if not job:
+        raise HTTPException(status_code=404, detail="Job not found")
+    if current_user.role == models.RoleEnum.USER and job.user_id != current_user.id:
+        raise HTTPException(status_code=403, detail="Not authorised to modify this job")
+    finding = (
+        db.query(models.Finding)
+        .filter(models.Finding.id == finding_id, models.Finding.job_id == job_id)
+        .first()
+    )
+    if not finding:
+        raise HTTPException(status_code=404, detail="Finding not found")
+    finding.is_false_positive = is_false_positive
+    db.commit()
+    db.refresh(finding)
+    log_audit_event(
+        db,
+        current_user.id,
+        action="finding_false_positive_updated",
+        target=f"finding:{finding_id}",
+        details={"is_false_positive": is_false_positive},
+    )
+    return schemas.FindingOut.from_orm(finding)
+
+
+@router.get("/jobs/{job_id}/metrics/privacy-impact", response_model=dict)
+async def get_privacy_impact_assessment(
+    job_id: int,
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(auth.get_current_user),
+) -> dict:
+    """Retrieve the full Privacy Impact Assessment for a completed scan job.
+
+    Returns the PIA generated during scanning, including compliance gaps,
+    masking recommendations, jurisdiction applicability and re-identification
+    risk scores.
+    """
+    job = db.query(models.ScanJob).get(job_id)
+    if not job:
+        raise HTTPException(status_code=404, detail="Job not found")
+    if current_user.role == models.RoleEnum.USER and job.user_id != current_user.id:
+        raise HTTPException(status_code=403, detail="Not authorised to view this job")
+    metric = db.query(models.Metric).filter(models.Metric.job_id == job_id).first()
+    if not metric or not metric.privacy_impact_assessment:
+        raise HTTPException(status_code=404, detail="Privacy impact assessment not available")
+    return metric.privacy_impact_assessment
+
+
+@router.get("/download/{file_name}")
+async def download_file(
+    file_name: str,
+    current_user: models.User = Depends(auth.get_current_user),
+) -> FileResponse:
+    """Serve a sanitised export file from the exports directory.
+
+    Requires authentication.  The resolved path is validated to be within
+    EXPORT_DIR to prevent path traversal attacks.  Only safe filename
+    characters are accepted.
+    """
+    # Reject filenames containing directory separators or non-safe characters.
+    if not re.match(r'^[A-Za-z0-9_\-]+\.csv$', file_name):
+        raise HTTPException(status_code=400, detail="Invalid file name")
+
+    resolved = os.path.realpath(os.path.join(EXPORT_DIR, file_name))
+    export_dir_resolved = os.path.realpath(EXPORT_DIR)
+
+    # Ensure the resolved path stays within EXPORT_DIR (prevent traversal).
+    if not resolved.startswith(export_dir_resolved + os.sep) and resolved != export_dir_resolved:
+        raise HTTPException(status_code=400, detail="Invalid file name")
+
+    if not os.path.isfile(resolved):
         raise HTTPException(status_code=404, detail="File not found")
-    return FileResponse(path, filename=file_name, media_type="text/csv")
+
+    return FileResponse(resolved, filename=file_name, media_type="text/csv")
