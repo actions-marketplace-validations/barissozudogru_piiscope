@@ -37,7 +37,7 @@ async def login(form_data: OAuth2PasswordRequestForm = Depends(), db: Session = 
 @router.get("/me", response_model=schemas.UserOut)
 async def read_current_user(current_user: models.User = Depends(auth.get_current_user)) -> schemas.UserOut:
     """Retrieve the profile of the currently authenticated user."""
-    return schemas.UserOut.from_orm(current_user)
+    return schemas.UserOut.model_validate(current_user)
 
 
 @router.post("/users", response_model=schemas.UserOut, status_code=status.HTTP_201_CREATED)
@@ -62,7 +62,7 @@ async def create_user(
     db.refresh(user)
     # Audit log
     log_audit_event(db, _.id if _ else None, action="create_user", target=f"user:{user.id}", details={"created_username": user.username})
-    return schemas.UserOut.from_orm(user)
+    return schemas.UserOut.model_validate(user)
 
 
 @router.get("/users", response_model=List[schemas.UserOut])
@@ -72,4 +72,4 @@ async def list_users(
 ) -> List[schemas.UserOut]:
     """List all user accounts (Super Admin only)."""
     users = db.query(models.User).all()
-    return [schemas.UserOut.from_orm(u) for u in users]
+    return [schemas.UserOut.model_validate(u) for u in users]

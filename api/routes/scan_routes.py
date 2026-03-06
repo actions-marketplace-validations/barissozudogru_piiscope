@@ -27,6 +27,8 @@ from ..detection.classifier import DataClassifier
 from ..services.compliance_report import ComplianceReportGenerator
 from ..services.remediation import RemediationService
 from ..audit import log_audit_event
+from ..validators import validate_file_extension
+from ..exceptions import ValidationError
 
 router = APIRouter()
 
@@ -54,7 +56,7 @@ async def list_jobs(
             .order_by(models.ScanJob.created_at.desc())
             .all()
         )
-    return [schemas.ScanJobOut.from_orm(j) for j in jobs]
+    return [schemas.ScanJobOut.model_validate(j) for j in jobs]
 
 
 @router.post("/upload", response_model=schemas.ScanJobOut, status_code=status.HTTP_201_CREATED)
@@ -74,13 +76,41 @@ async def upload_dataset(
     profile = db.query(models.Profile).get(profile_id)
     if not profile:
         raise HTTPException(status_code=404, detail="Profile not found")
-    # Save file to disk
+
+    # Validate file extension before accepting the upload
+    try:
+        validate_file_extension(file.filename or "")
+    except ValidationError as exc:
+        raise HTTPException(status_code=400, detail=str(exc))
+
+    # Stream upload while enforcing the configured size limit
+    max_bytes = settings.max_file_size_mb * 1024 * 1024
     suffix = os.path.splitext(file.filename)[1]
     unique_name = f"{current_user.id}_{profile_id}_{os.urandom(8).hex()}{suffix}"
     file_path = os.path.join(UPLOAD_DIR, unique_name)
-    with open(file_path, "wb") as out_file:
-        content = await file.read()
-        out_file.write(content)
+    received = 0
+    try:
+        with open(file_path, "wb") as out_file:
+            chunk_size = 1024 * 1024  # 1 MB chunks
+            while True:
+                chunk = await file.read(chunk_size)
+                if not chunk:
+                    break
+                received += len(chunk)
+                if received > max_bytes:
+                    out_file.close()
+                    os.remove(file_path)
+                    raise HTTPException(
+                        status_code=413,
+                        detail=f"File exceeds maximum allowed size of {settings.max_file_size_mb} MB",
+                    )
+                out_file.write(chunk)
+    except HTTPException:
+        raise
+    except Exception as exc:
+        if os.path.exists(file_path):
+            os.remove(file_path)
+        raise HTTPException(status_code=500, detail=f"Failed to save uploaded file: {exc}")
     # Create scan job record
     job = models.ScanJob(
         user_id=current_user.id,
@@ -97,7 +127,7 @@ async def upload_dataset(
     scan_file_task.delay(job.id)
     # Audit log
     log_audit_event(db, current_user.id, action="scan_started", target=f"job:{job.id}", details={"file_name": file.filename, "profile_id": profile_id})
-    return schemas.ScanJobOut.from_orm(job)
+    return schemas.ScanJobOut.model_validate(job)
 
 
 @router.get("/jobs/{job_id}", response_model=schemas.ScanJobOut)
@@ -114,14 +144,14 @@ async def get_job(
     # Authorisation: normal users can only access their own jobs; admins can access all
     if current_user.role == models.RoleEnum.USER and job.user_id != current_user.id:
         raise HTTPException(status_code=403, detail="Not authorised to view this job")
-    return schemas.ScanJobOut.from_orm(job)
+    return schemas.ScanJobOut.model_validate(job)
 
 
 @router.get("/jobs/{job_id}/findings", response_model=List[schemas.FindingOut])
 async def list_findings(
     job_id: int,
-    skip: int = 0,
-    limit: int = 100,
+    skip: int = Query(default=0, ge=0),
+    limit: int = Query(default=100, ge=1, le=1000),
     db: Session = Depends(get_db),
     current_user: models.User = Depends(auth.get_current_user),
 ) -> List[schemas.FindingOut]:
@@ -138,7 +168,7 @@ async def list_findings(
         .limit(limit)
         .all()
     )
-    return [schemas.FindingOut.from_orm(f) for f in findings]
+    return [schemas.FindingOut.model_validate(f) for f in findings]
 
 
 @router.get("/jobs/{job_id}/metrics", response_model=schemas.MetricOut)
@@ -156,7 +186,7 @@ async def get_metrics(
     metric = db.query(models.Metric).filter(models.Metric.job_id == job_id).first()
     if not metric:
         raise HTTPException(status_code=404, detail="Metrics not available yet")
-    return schemas.MetricOut.from_orm(metric)
+    return schemas.MetricOut.model_validate(metric)
 
 
 @router.post("/jobs/{job_id}/export", status_code=status.HTTP_201_CREATED)
@@ -249,7 +279,7 @@ async def mark_finding_false_positive(
         target=f"finding:{finding_id}",
         details={"is_false_positive": is_false_positive},
     )
-    return schemas.FindingOut.from_orm(finding)
+    return schemas.FindingOut.model_validate(finding)
 
 
 @router.get("/jobs/{job_id}/metrics/privacy-impact", response_model=dict)

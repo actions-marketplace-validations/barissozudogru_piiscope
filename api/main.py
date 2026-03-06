@@ -17,12 +17,14 @@ import os
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI, HTTPException
+from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 
 from . import models
 from . import database
+from .config import settings
 from .routes import auth_routes, profile_routes, scan_routes, audit_routes, data_source_routes, webhook_routes
-# from .middleware import setup_middleware
+from .middleware import setup_middleware
 # from .logging_config import setup_logging
 # from .performance import init_redis_cache, init_connection_pool
 # from .exceptions import BasePrivacyException
@@ -40,13 +42,27 @@ async def lifespan(app: FastAPI):
     models.Base.metadata.create_all(bind=database.engine)  # type: ignore[attr-defined]
 
     # Ensure a default super admin user exists on first startup.
-    # Username/password are read from DEFAULT_ADMIN_USER / DEFAULT_ADMIN_PASSWORD;
-    # they fall back to 'admin'/'admin' when those vars are not set.
+    # DEFAULT_ADMIN_USER and DEFAULT_ADMIN_PASSWORD must be explicitly set via
+    # environment variables.  Falling back to hardcoded defaults is not allowed
+    # outside of the "test" environment.
+    _env = os.getenv("ENVIRONMENT", "production")
+    _username = os.getenv("DEFAULT_ADMIN_USER")
+    _password = os.getenv("DEFAULT_ADMIN_PASSWORD")
+
+    if not _username or not _password:
+        if _env != "test":
+            raise RuntimeError(
+                "DEFAULT_ADMIN_USER and DEFAULT_ADMIN_PASSWORD must be set via "
+                "environment variables before starting the application."
+            )
+        # In the test environment use safe non-guessable placeholders so the
+        # application can still start without real credentials configured.
+        _username = _username or "test_admin"
+        _password = _password or "Test@dmin1!"
+
     _db = database.SessionLocal()
     try:
         if _db.query(models.User).count() == 0:
-            _username = os.getenv("DEFAULT_ADMIN_USER", "admin")
-            _password = os.getenv("DEFAULT_ADMIN_PASSWORD", "admin")
             from .utils import get_password_hash  # noqa: PLC0415
 
             _user = models.User(
@@ -84,8 +100,8 @@ app = FastAPI(
 #         }
 #     )
 
-# Set up middleware
-# setup_middleware(app)
+# Set up security and request middleware
+setup_middleware(app)
 
 # Register routers under their respective prefixes
 app.include_router(auth_routes.router, prefix="/auth", tags=["auth"])

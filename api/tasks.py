@@ -111,7 +111,7 @@ def scan_file_task(self, job_id: int) -> None:
             # Update progress
             processed_rows += 1
             if total_rows:
-                job.progress = min(0.99, processed_rows / total_rows)
+                job.progress = min(99.0, processed_rows / total_rows * 100.0)
                 db.commit()
 
         # ------------------------------------------------------------------

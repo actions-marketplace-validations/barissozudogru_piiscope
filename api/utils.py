@@ -11,8 +11,8 @@ from typing import Any, Dict, Optional
 
 from jose import jwt
 from passlib.context import CryptContext
-from cryptography.hazmat.primitives.ciphers.aead import AESGCM
-from cryptography.hazmat.primitives import hashes, serialization
+from cryptography.fernet import Fernet
+from cryptography.hazmat.primitives import hashes
 from cryptography.hazmat.primitives.kdf.pbkdf2 import PBKDF2HMAC
 
 from .config import settings
@@ -81,44 +81,54 @@ def create_access_token(data: Dict[str, Any], expires_delta: timedelta) -> str:
     return encoded_jwt
 
 
-def encrypt_bytes(data: bytes) -> bytes:
-    """Encrypt data using AES‑GCM with a key from configuration.
-
-    The encryption key must be a 32‑byte string when decoded from
-    base64.  A random 12‑byte nonce is prepended to the ciphertext.
-    """
+def _get_fernet() -> Fernet:
+    """Return a Fernet cipher initialised from settings.encryption_key."""
     try:
-        key = base64.urlsafe_b64decode(settings.encryption_key)
-        if len(key) != 32:
-            raise ConfigurationError("Encryption key must be exactly 32 bytes when base64 decoded")
-        
-        aesgcm = AESGCM(key)
-        nonce = os.urandom(12)
-        ciphertext = aesgcm.encrypt(nonce, data, None)
-        return nonce + ciphertext
-    
+        return Fernet(settings.encryption_key.encode())
+    except Exception as e:
+        raise ConfigurationError(f"Invalid encryption key: {str(e)}")
+
+
+def encrypt_value(value: str) -> str:
+    """Encrypt a string value using Fernet and return the token as a string."""
+    try:
+        fernet = _get_fernet()
+        return fernet.encrypt(value.encode()).decode()
+    except ConfigurationError:
+        raise
+    except Exception as e:
+        raise ConfigurationError(f"Failed to encrypt value: {str(e)}")
+
+
+def decrypt_value(token: str) -> str:
+    """Decrypt a Fernet token and return the original string."""
+    try:
+        fernet = _get_fernet()
+        return fernet.decrypt(token.encode()).decode()
+    except ConfigurationError:
+        raise
+    except Exception as e:
+        raise ConfigurationError(f"Failed to decrypt value: {str(e)}")
+
+
+def encrypt_bytes(data: bytes) -> bytes:
+    """Encrypt bytes using Fernet.  Returns the Fernet token as bytes."""
+    try:
+        fernet = _get_fernet()
+        return fernet.encrypt(data)
+    except ConfigurationError:
+        raise
     except Exception as e:
         raise ConfigurationError(f"Failed to encrypt data: {str(e)}")
 
 
 def decrypt_bytes(data: bytes) -> bytes:
-    """Decrypt data encrypted with `encrypt_bytes`.
-
-    Expects the nonce to be prepended to the ciphertext.
-    """
+    """Decrypt bytes produced by `encrypt_bytes`."""
     try:
-        key = base64.urlsafe_b64decode(settings.encryption_key)
-        if len(key) != 32:
-            raise ConfigurationError("Encryption key must be exactly 32 bytes when base64 decoded")
-        
-        if len(data) < 12:
-            raise ValueError("Encrypted data too short to contain valid nonce")
-        
-        aesgcm = AESGCM(key)
-        nonce = data[:12]
-        ciphertext = data[12:]
-        return aesgcm.decrypt(nonce, ciphertext, None)
-    
+        fernet = _get_fernet()
+        return fernet.decrypt(data)
+    except ConfigurationError:
+        raise
     except Exception as e:
         raise ConfigurationError(f"Failed to decrypt data: {str(e)}")
 

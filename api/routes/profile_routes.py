@@ -25,7 +25,7 @@ async def list_profiles(
 ) -> List[schemas.ProfileOut]:
     """Return all profiles sorted by name."""
     profiles = db.query(models.Profile).order_by(models.Profile.name).all()
-    return [schemas.ProfileOut.from_orm(p) for p in profiles]
+    return [schemas.ProfileOut.model_validate(p) for p in profiles]
 
 
 @router.post("/", response_model=schemas.ProfileOut, status_code=status.HTTP_201_CREATED)
@@ -52,7 +52,7 @@ async def create_profile(
     db.commit()
     db.refresh(profile)
     log_audit_event(db, current_user.id, action="create_profile", target=f"profile:{profile.id}", details={"name": profile.name})
-    return schemas.ProfileOut.from_orm(profile)
+    return schemas.ProfileOut.model_validate(profile)
 
 
 @router.get("/{profile_id}", response_model=schemas.ProfileOut)
@@ -65,7 +65,7 @@ async def get_profile(
     profile = db.query(models.Profile).get(profile_id)
     if not profile:
         raise HTTPException(status_code=404, detail="Profile not found")
-    return schemas.ProfileOut.from_orm(profile)
+    return schemas.ProfileOut.model_validate(profile)
 
 
 @router.put("/{profile_id}", response_model=schemas.ProfileOut)
@@ -89,7 +89,7 @@ async def update_profile(
     db.commit()
     db.refresh(profile)
     log_audit_event(db, _.id, action="update_profile", target=f"profile:{profile.id}", details={"name": profile.name})
-    return schemas.ProfileOut.from_orm(profile)
+    return schemas.ProfileOut.model_validate(profile)
 
 
 @router.delete("/{profile_id}", status_code=status.HTTP_204_NO_CONTENT, response_model=None)
