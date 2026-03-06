@@ -24,13 +24,13 @@ services:
     environment:
       DATABASE_URL: postgresql+psycopg2://privacyapp:privacypass@db:5432/privacydb
       REDIS_URL: redis://redis:6379/0
-      JWT_SECRET_KEY: supersecretjwtkey
+      JWT_SECRET_KEY: ${JWT_SECRET_KEY:?JWT_SECRET_KEY must be set}
       JWT_ALGORITHM: HS256
-      ENCRYPTION_KEY: supersecret16byteskey
+      ENCRYPTION_KEY: ${ENCRYPTION_KEY:?ENCRYPTION_KEY must be set}
       DATA_RETENTION_HOURS: '24'
       ALLOW_EGRESS: 'false'
-      DEFAULT_ADMIN_USER: admin
-      DEFAULT_ADMIN_PASSWORD: admin
+      DEFAULT_ADMIN_USER: ${DEFAULT_ADMIN_USER:?DEFAULT_ADMIN_USER must be set}
+      DEFAULT_ADMIN_PASSWORD: ${DEFAULT_ADMIN_PASSWORD:?DEFAULT_ADMIN_PASSWORD must be set}
     depends_on:
       - db
       - redis
@@ -44,9 +44,9 @@ services:
     environment:
       DATABASE_URL: postgresql+psycopg2://privacyapp:privacypass@db:5432/privacydb
       REDIS_URL: redis://redis:6379/0
-      JWT_SECRET_KEY: supersecretjwtkey
+      JWT_SECRET_KEY: ${JWT_SECRET_KEY:?JWT_SECRET_KEY must be set}
       JWT_ALGORITHM: HS256
-      ENCRYPTION_KEY: supersecret16byteskey
+      ENCRYPTION_KEY: ${ENCRYPTION_KEY:?ENCRYPTION_KEY must be set}
       DATA_RETENTION_HOURS: '24'
     depends_on:
       - db

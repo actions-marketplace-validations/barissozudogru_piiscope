@@ -12,7 +12,6 @@ from typing import Any, Callable, Dict, Optional, TypeVar, Union
 from contextlib import asynccontextmanager
 import hashlib
 import json
-import pickle
 from datetime import datetime, timedelta
 
 import redis
@@ -98,11 +97,11 @@ class RedisCache:
     
     def _serialize(self, value: Any) -> bytes:
         """Serialize value for storage."""
-        return pickle.dumps(value)
-    
+        return json.dumps(value, default=str).encode("utf-8")
+
     def _deserialize(self, data: bytes) -> Any:
         """Deserialize value from storage."""
-        return pickle.loads(data)
+        return json.loads(data.decode("utf-8"))
     
     def get(self, key: str) -> Optional[Any]:
         """Get value from Redis cache."""

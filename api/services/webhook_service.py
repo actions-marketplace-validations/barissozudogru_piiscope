@@ -364,6 +364,7 @@ class WebhookService:
         if reg is None:
             return None
         if url is not None:
+            _validate_webhook_url(url)
             reg.url = url
         if events is not None:
             reg.events = events
