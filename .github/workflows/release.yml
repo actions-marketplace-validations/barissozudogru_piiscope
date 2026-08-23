@@ -32,8 +32,22 @@ jobs:
       - name: Publish to PyPI
         uses: pypa/gh-action-pypi-publish@release/v1
         
+      - name: Extract changelog section
+        run: |
+          version="${GITHUB_REF_NAME#v}"
+          awk -v ver="$version" '
+            /^## \[/ { printing = ($0 ~ "^## \\[" ver "\\]") }
+            printing { print }
+          ' CHANGELOG.md > release_notes.md
+          if [ ! -s release_notes.md ]; then
+            echo "No CHANGELOG section for $version; using generated notes only." > release_notes.md
+          fi
+          cat release_notes.md
+
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
         with:
+          name: piiscope ${{ github.ref_name }}
+          body_path: release_notes.md
           files: dist/*
           generate_release_notes: true

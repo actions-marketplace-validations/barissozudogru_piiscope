@@ -7,9 +7,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-## [1.0.0] - 2026-08-23
+## [1.1.0] - 2026-08-23
 
-This is the first public release of the project under the new piiscope brand.
+First public release under the piiscope name, and the first release on PyPI.
 
 ### Added
 - Standalone `piiscope` package and CLI.
@@ -23,3 +23,9 @@ This is the first public release of the project under the new piiscope brand.
 ### Security
 - Upgraded dependencies: python-jose, python-multipart, jinja2, cryptography, and starlette.
 - Fixed startup defects.
+
+## [1.0.0] - 2026-03-12
+
+Initial release of the GDPR privacy risk detection platform (private): FastAPI
+API, Celery worker, PostgreSQL, Redis and React UI with detection, k-anonymity
+metrics, remediation, RBAC, audit log and compliance reports.
