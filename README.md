@@ -5,6 +5,7 @@ Find, score and remediate personal data in your files and databases.
 ![PyPI Version](https://img.shields.io/pypi/v/piiscope)
 ![Python Versions](https://img.shields.io/pypi/pyversions/piiscope)
 ![License](https://img.shields.io/badge/License-Apache--2.0-blue.svg)
+[![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.22071807.svg)](https://doi.org/10.5281/zenodo.22071807)
 
 ![piiscope demo](https://raw.githubusercontent.com/barissozudogru/piiscope/main/docs/assets/demo.gif)
 
@@ -236,3 +237,22 @@ Contributions are welcome; see [CONTRIBUTING.md](CONTRIBUTING.md) for the develo
 Licensed under the [Apache 2.0 License](LICENSE).
 
 **Data handling:** All scans execute completely locally. No data is sent to external servers, and samples included in reports are partially redacted to prevent leakage.
+
+## Citation
+
+If you use piiscope in academic work, please cite it. The concept DOI below always
+resolves to the latest version; use the version DOI to cite a specific release.
+
+- Concept DOI (all versions): [10.5281/zenodo.22071806](https://doi.org/10.5281/zenodo.22071806)
+- This release (v1.1.1): [10.5281/zenodo.22071807](https://doi.org/10.5281/zenodo.22071807)
+
+```bibtex
+@software{sozudogru_piiscope,
+  author  = {Sozudogru, Baris},
+  title   = {piiscope: find, score and remediate personal data in files and databases},
+  version = {1.1.1},
+  doi     = {10.5281/zenodo.22071806},
+  url     = {https://github.com/barissozudogru/piiscope},
+  year    = {2026}
+}
+```
