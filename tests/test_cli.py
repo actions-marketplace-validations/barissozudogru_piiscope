@@ -68,6 +68,31 @@ class TestScanFormats:
         assert lines[0].startswith("source,file,column,category,detector")
         assert len(lines) >= 2
 
+    def test_sarif_output_is_valid_and_excludes_samples(self):
+        result = _invoke("scan", str(SAMPLES / "medical_notes.csv"), "--format", "sarif")
+        assert result.exit_code == 0
+        payload = json.loads(result.output)
+        assert payload["version"] == "2.1.0"
+        run = payload["runs"][0]
+        assert run["tool"]["driver"]["name"] == "piiscope"
+        assert run["results"]
+        serialized = json.dumps(payload)
+        assert "samples_redacted" not in serialized
+        assert "anna@example.com" not in serialized
+
+    def test_sarif_output_file(self, tmp_path):
+        out = tmp_path / "piiscope.sarif"
+        result = _invoke(
+            "scan",
+            str(SAMPLES / "medical_notes.csv"),
+            "--format",
+            "sarif",
+            "--output",
+            str(out),
+        )
+        assert result.exit_code == 0
+        assert json.loads(out.read_text())["runs"][0]["results"]
+
     def test_multiple_jurisdictions(self):
         result = _invoke(
             "scan",

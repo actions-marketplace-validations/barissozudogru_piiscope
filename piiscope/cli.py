@@ -28,7 +28,7 @@ from piiscope.detection.jurisdictions import JURISDICTION_PROFILES
 from piiscope.detection.regex_patterns import PATTERNS
 from piiscope.errors import PiiscopeError
 from piiscope.remediation.strategies import remediate
-from piiscope.report import render_markdown, write_report
+from piiscope.report import render_markdown, render_sarif, write_report
 from piiscope.scan import ScanResult, scan
 
 app = typer.Typer(
@@ -60,6 +60,7 @@ class OutputFormat(str, Enum):
     json = "json"
     markdown = "markdown"
     csv = "csv"
+    sarif = "sarif"
 
 
 class FailLevel(str, Enum):
@@ -285,6 +286,8 @@ def _emit(
         text = "\n\n---\n\n".join(render_markdown(r) for r in results)
     elif fmt == OutputFormat.csv:
         text = "\n".join(_findings_csv(r) for r in results)
+    elif fmt == OutputFormat.sarif:
+        text = render_sarif(results)
     else:
         text = None
 

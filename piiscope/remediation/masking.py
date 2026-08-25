@@ -65,8 +65,8 @@ def date_shift(value: Any, days: int) -> str | None:
 def tokenize_value(value: Any, salt: str) -> str:
     """Tokenise a value by hashing it with a salt.
 
-    This produces a pseudonymised value that is consistent across the
-    same salt but irreversible without the salt.
+    This produces a one-way pseudonymised value that is consistent when the
+    same salt is reused. Keep the salt secret to make guessing attacks harder.
     """
     h = hashlib.sha256()
     h.update(str(value).encode("utf-8"))

@@ -7,6 +7,24 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.2.0] - 2026-08-26
+
+### Added
+
+- SARIF 2.1.0 output for privacy findings without matched or redacted sample values.
+- Reusable GitHub Action that creates a SARIF artifact and enforces a configurable risk threshold.
+- Petri Labs discovery page, PyPI download badge, and a repository social preview.
+
+### Changed
+
+- Package homepage and documentation links now point to the focused Petri Labs tool page while source and issues remain on GitHub.
+
+## [1.1.1] - 2026-08-23
+
+### Changed
+
+- Citation metadata and package version for Zenodo archiving.
+
 ## [1.1.0] - 2026-08-23
 
 First public release under the piiscope name, and the first release on PyPI.

@@ -1,11 +1,14 @@
-# piiscope
-Find, score and remediate personal data in your files and databases.
+# piiscope: PII scanner and privacy risk CLI
+Find, score and remediate personal data in files and databases without sending the data to an external service.
 
 [![CI](https://github.com/barissozudogru/piiscope/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/barissozudogru/piiscope/actions/workflows/ci.yml)
 ![PyPI Version](https://img.shields.io/pypi/v/piiscope)
+[![PyPI Downloads](https://img.shields.io/pypi/dm/piiscope)](https://pypi.org/project/piiscope/)
 ![Python Versions](https://img.shields.io/pypi/pyversions/piiscope)
 ![License](https://img.shields.io/badge/License-Apache--2.0-blue.svg)
 [![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.22071807.svg)](https://doi.org/10.5281/zenodo.22071807)
+
+[Tool page](https://petri-labs.org/tools/piiscope/) · [PyPI](https://pypi.org/project/piiscope/) · [Source](https://github.com/barissozudogru/piiscope)
 
 ![piiscope demo](https://raw.githubusercontent.com/barissozudogru/piiscope/main/docs/assets/demo.gif)
 
@@ -118,6 +121,9 @@ No personal data detected.
 ╰──────────────────────────────────────────────────────────────────────────────────────────────────╯
 Nothing to remediate.
 ```
+
+If this saves you time, consider [starring the repository](https://github.com/barissozudogru/piiscope). It helps other developers find it.
+
 Scan a file and get the risk score in JSON:
 ```bash
 piiscope scan samples/customers.csv --format json | jq '.risk'
@@ -142,6 +148,34 @@ You can fail the build based on privacy risk levels (0=low, 1=medium, 2=high, 3=
 steps:
   - run: pip install piiscope
   - run: piiscope scan data/ --fail-on high
+```
+
+The repository also ships a reusable GitHub Action:
+
+```yaml
+name: Privacy scan
+
+on: [pull_request]
+
+jobs:
+  piiscope:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+      - uses: barissozudogru/piiscope@v1.2.0
+        with:
+          path: data/
+          fail-on: high
+```
+
+The action writes a SARIF artifact path to its outputs. It does not include matched or redacted sample values.
+
+Generate SARIF directly from the CLI:
+
+```bash
+piiscope scan data/ --format sarif --output piiscope.sarif
 ```
 
 ## Python API
@@ -201,7 +235,7 @@ Transform findings with one of the following methods:
 - `redact`: Keep the first and last characters and mask the middle.
 - `null`: Empty string.
 - `generalise`: Numbers become ranges, dates become years, everything else is redacted.
-- `tokenise`: Salted hash pseudonym (reversible if you keep the salt).
+- `tokenise`: One-way salted hash pseudonym that stays stable when the same salt is reused.
 - `date-shift`: Shift dates by a fixed number of days.
 
 ## Reports
@@ -244,13 +278,13 @@ If you use piiscope in academic work, please cite it. The concept DOI below alwa
 resolves to the latest version; use the version DOI to cite a specific release.
 
 - Concept DOI (all versions): [10.5281/zenodo.22071806](https://doi.org/10.5281/zenodo.22071806)
-- This release (v1.1.1): [10.5281/zenodo.22071807](https://doi.org/10.5281/zenodo.22071807)
+- Latest archived release (v1.1.1): [10.5281/zenodo.22071807](https://doi.org/10.5281/zenodo.22071807)
 
 ```bibtex
 @software{sozudogru_piiscope,
   author  = {Sozudogru, Baris},
   title   = {piiscope: find, score and remediate personal data in files and databases},
-  version = {1.1.1},
+  version = {1.2.0},
   doi     = {10.5281/zenodo.22071806},
   url     = {https://github.com/barissozudogru/piiscope},
   year    = {2026}
