@@ -13,6 +13,8 @@ tags:
   - synthetic
   - benchmark
   - data-protection
+  - piiscope
+  - personal-data
 pretty_name: Piiscope Structured PII Pattern Benchmark
 configs:
   - config_name: default
@@ -32,6 +34,10 @@ The benchmark is maintained with
 [Piiscope](https://github.com/barissozudogru/piiscope), a local PII scanner and
 privacy-risk CLI. It can also evaluate compatible rule-based detectors that
 return one or more rule identifiers for a text field.
+
+The focused [Piiscope tool page](https://petri-labs.org/tools/piiscope/)
+collects the install path, operating limits, reproducible workflow, and source
+links in one place.
 
 ## Dataset structure
 
