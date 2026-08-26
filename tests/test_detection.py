@@ -223,11 +223,20 @@ class TestPatterns:
     def test_ipv6_matches_full(self):
         assert PATTERNS["ipv6_address"].pattern.search("2001:0db8:85a3:0000:0000:8a2e:0370:7334")
 
+    def test_ipv6_does_not_match_valid_prefix_of_invalid_address(self):
+        assert not PATTERNS["ipv6_address"].pattern.search("2001:db8:zzzz::42")
+
     def test_medical_record_matches(self):
         assert PATTERNS["medical_record"].pattern.search("MRN: 1234567")
 
     def test_tr_phone_matches(self):
         assert PATTERNS["tr_phone"].pattern.search("+90 532 123 4567")
+
+    def test_tr_phone_does_not_match_us_number(self):
+        assert not PATTERNS["tr_phone"].pattern.search("+1 212-555-0100")
+
+    def test_eu_phone_matches_leading_plus(self):
+        assert PATTERNS["eu_phone"].pattern.search("+44 7700 900123")
 
     def test_us_phone_matches(self):
         assert PATTERNS["us_phone"].pattern.search("(212) 555-1234")
@@ -238,6 +247,9 @@ class TestPatterns:
     def test_vat_does_not_match_non_eu_prefix(self):
         # "XX" is not a valid EU VAT prefix in our pattern
         assert not PATTERNS["vat"].pattern.search("XX12345678")
+
+    def test_generic_passport_is_case_sensitive(self):
+        assert not PATTERNS["passport"].pattern.search("zz000000")
 
 
 # ============================================================================
@@ -318,6 +330,13 @@ class TestDetectionEngine:
         findings = self.engine.detect_cell("8.8.8.8", "server_ip")
         rule_ids = [f.rule_id for f in findings]
         assert "ipv4_address" in rule_ids
+        assert "date" not in rule_ids
+
+    def test_vat_column_does_not_emit_generic_passport(self):
+        findings = self.engine.detect_cell("DE000000000", "vat_number")
+        rule_ids = [f.rule_id for f in findings]
+        assert "vat_de" in rule_ids
+        assert "passport" not in rule_ids
 
     def test_private_ip_lower_confidence(self):
         findings = self.engine.detect_cell("192.168.1.1", "source_ip")

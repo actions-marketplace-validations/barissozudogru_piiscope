@@ -51,6 +51,7 @@ Documentation = "https://petri-labs.org/tools/piiscope/"
 Source = "https://github.com/barissozudogru/piiscope"
 Issues = "https://github.com/barissozudogru/piiscope/issues"
 Changelog = "https://github.com/barissozudogru/piiscope/blob/main/CHANGELOG.md"
+Benchmark = "https://huggingface.co/datasets/barissozudogru/piiscope-benchmark"
 
 [project.scripts]
 piiscope = "piiscope.cli:main"

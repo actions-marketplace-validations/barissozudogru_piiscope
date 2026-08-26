@@ -358,6 +358,8 @@ def column_name_context_boost(column_name: str, rule_id: str) -> float:
         for p in positive:
             if p in col_clean:
                 return 1.3
+        if any(token in col_clean for token in ("ip", "host", "version", "release", "build")):
+            return 0.2
         return 1.0
 
     if rule_id in ("swift_bic",):
@@ -368,6 +370,8 @@ def column_name_context_boost(column_name: str, rule_id: str) -> float:
     if rule_id in ("passport_tr", "passport_de", "passport_uk", "passport"):
         if "passport" in col_clean or "travel" in col_clean or "document" in col_clean:
             return 1.5
+        if any(token in col_clean for token in ("vat", "tax", "vergi")):
+            return 0.2
         return 1.0
 
     if rule_id in ("iban_tr",):

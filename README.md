@@ -7,6 +7,7 @@ Find, score and remediate personal data in files and databases without sending t
 ![Python Versions](https://img.shields.io/pypi/pyversions/piiscope)
 ![License](https://img.shields.io/badge/License-Apache--2.0-blue.svg)
 [![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.22071807.svg)](https://doi.org/10.5281/zenodo.22071807)
+[![Benchmark Dataset](https://img.shields.io/badge/Hugging_Face-benchmark-FFD21E)](https://huggingface.co/datasets/barissozudogru/piiscope-benchmark)
 
 [Tool page](https://petri-labs.org/tools/piiscope/) · [PyPI](https://pypi.org/project/piiscope/) · [Source](https://github.com/barissozudogru/piiscope)
 
@@ -164,7 +165,7 @@ jobs:
       contents: read
     steps:
       - uses: actions/checkout@v4
-      - uses: barissozudogru/piiscope@v1.2.0
+      - uses: barissozudogru/piiscope@v1.3.0
         with:
           path: data/
           fail-on: high
@@ -177,6 +178,26 @@ Generate SARIF directly from the CLI:
 ```bash
 piiscope scan data/ --format sarif --output piiscope.sarif
 ```
+
+## Reproducible benchmark
+
+The [Piiscope Structured PII Pattern Benchmark](https://huggingface.co/datasets/barissozudogru/piiscope-benchmark)
+contains 512 deterministic positive and hard-negative cases across English,
+German, Turkish, and Portuguese contexts. Every value is synthetic, reserved
+for documentation, or a published test credential. It contains no records
+collected from people.
+
+Reproduce the checked-in evaluation:
+
+```bash
+python benchmarks/piiscope-benchmark/generate.py
+python benchmarks/piiscope-benchmark/evaluate.py
+```
+
+Version 1.3.0 reaches 1.000 micro precision, recall, exact multi-label match,
+and hard-negative pass rate on this structured-pattern benchmark. Version 1.2.0
+is included as a baseline. The benchmark does not measure real-world prevalence,
+demographic fairness, or multilingual named-entity recall.
 
 ## Python API
 Call the scan and remediate functions directly in Python:
@@ -284,7 +305,7 @@ resolves to the latest version; use the version DOI to cite a specific release.
 @software{sozudogru_piiscope,
   author  = {Sozudogru, Baris},
   title   = {piiscope: find, score and remediate personal data in files and databases},
-  version = {1.2.0},
+  version = {1.3.0},
   doi     = {10.5281/zenodo.22071806},
   url     = {https://github.com/barissozudogru/piiscope},
   year    = {2026}

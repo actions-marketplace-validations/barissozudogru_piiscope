@@ -7,6 +7,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.3.0] - 2026-08-26
+
+### Added
+
+- A 512-row, multilingual, privacy-safe structured PII pattern benchmark with deterministic generation, checked-in evaluation results, and a Hugging Face dataset card.
+- Regression coverage for international phone boundaries, malformed IPv6 values, and cross-detector false positives.
+
+### Fixed
+
+- International telephone numbers beginning with `+` are now detected without relying on an invalid word boundary.
+- Turkish phone rules no longer absorb North American numbers.
+- The IPv6 rule no longer emits a valid-looking prefix from a malformed address.
+- IP address columns no longer emit overlapping date findings, and VAT columns no longer emit generic passport findings.
+- Generic passport matching is now case-sensitive.
+
 ## [1.2.0] - 2026-08-26
 
 ### Added
