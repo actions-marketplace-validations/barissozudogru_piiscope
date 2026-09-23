@@ -7,6 +7,7 @@ import os
 import sys
 from pathlib import Path
 
+import pandas as pd
 import pytest
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
@@ -289,6 +290,42 @@ class TestRemediateCommand:
         out = tmp_path / "safe.csv"
         _invoke("remediate", str(source), "--out", str(out), "--strategy", "hash")
         assert source.read_text() == "email\nsomeone@example.com\n"
+
+    def test_date_shift_strategy(self, tmp_path):
+        out = tmp_path / "safe.csv"
+        result = _invoke(
+            "remediate",
+            str(SAMPLES / "medical_notes.csv"),
+            "--out",
+            str(out),
+            "--strategy",
+            "date-shift",
+            "--shift-days",
+            "10",
+            "-c",
+            "dob",
+        )
+        assert result.exit_code == 0
+        df = pd.read_csv(out)
+        assert df["dob"].iloc[0] == "1980-01-25"
+
+    def test_generalise_strategy(self, tmp_path):
+        out = tmp_path / "safe.csv"
+        result = _invoke(
+            "remediate",
+            str(SAMPLES / "medical_notes.csv"),
+            "--out",
+            str(out),
+            "--strategy",
+            "generalise",
+            "--bucket-size",
+            "5",
+            "-c",
+            "dob",
+        )
+        assert result.exit_code == 0
+        df = pd.read_csv(out)
+        assert str(df["dob"].iloc[0]) == "1980"
 
     def test_empty_txt_remediate(self, tmp_path):
         source = tmp_path / "empty.txt"
