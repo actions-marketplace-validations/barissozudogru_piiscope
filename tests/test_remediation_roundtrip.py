@@ -172,3 +172,162 @@ def test_generalise_handles_nan_and_non_finite_values():
     assert frame["age"].iloc[1] == "n*n"
     assert frame["age"].iloc[2] == "i*f"
     assert frame["age"].iloc[3] == ""
+
+
+def test_remediate_dataframe_with_integer_columns(tmp_path):
+    df = pd.DataFrame([["alice@example.com", "4111111111111111"]])
+    out = tmp_path / "out.csv"
+    res = remediate(df, out, strategy="hash")
+    assert res.rows == 1
+    assert "0" in res.columns_changed
+    assert "1" in res.columns_changed
+    assert list(df.columns) == [0, 1]
+    assert all(isinstance(c, int) for c in df.columns)
+    remediated = pd.read_csv(out)
+    assert remediated["0"].iloc[0] != "alice@example.com"
+    assert "@" not in remediated["0"].iloc[0]
+
+
+def test_remediate_frame_preserves_non_string_column_names():
+    df = pd.DataFrame([["alice@example.com", "4111111111111111"]])
+    assert list(df.columns) == [0, 1]
+    assert all(isinstance(c, int) for c in df.columns)
+
+    changed, _ = remediate_frame(df, strategy="hash")
+
+    assert list(df.columns) == [0, 1]
+    assert all(isinstance(c, int) for c in df.columns)
+    assert "0" in changed
+    assert "1" in changed
+    assert df[0].iloc[0] != "alice@example.com"
+    assert "@" not in df[0].iloc[0]
+    assert df[1].iloc[0] != "4111111111111111"
+
+    df_explicit = pd.DataFrame([["alice@example.com", "4111111111111111"]])
+    changed_explicit, _ = remediate_frame(df_explicit, strategy="hash", columns=[0])
+    assert list(df_explicit.columns) == [0, 1]
+    assert all(isinstance(c, int) for c in df_explicit.columns)
+    assert changed_explicit == {"0": 1}
+    assert df_explicit[0].iloc[0] != "alice@example.com"
+    assert df_explicit[1].iloc[0] == "4111111111111111"
+
+    df_str_cols = pd.DataFrame([["alice@example.com", "4111111111111111"]])
+    changed_str_cols, _ = remediate_frame(df_str_cols, strategy="hash", columns=["1"])
+    assert list(df_str_cols.columns) == [0, 1]
+    assert all(isinstance(c, int) for c in df_str_cols.columns)
+    assert changed_str_cols == {"1": 1}
+    assert df_str_cols[1].iloc[0] != "4111111111111111"
+
+
+def test_apply_strategy_flexible_column_matching():
+    # Integer columns with string column specifications
+    df_int = pd.DataFrame([["alice@example.com", "4111111111111111"]])
+    changed, _ = apply_strategy(df_int, strategy="hash", columns=["0", "1"])
+    assert list(df_int.columns) == [0, 1]
+    assert all(isinstance(c, int) for c in df_int.columns)
+    assert changed == {"0": 1, "1": 1}
+    assert df_int[0].iloc[0] != "alice@example.com"
+
+    # String columns with integer column specifications
+    df_str = pd.DataFrame({"0": ["alice@example.com"], "1": ["4111111111111111"]})
+    changed, _ = apply_strategy(df_str, strategy="hash", columns=[0, 1])
+    assert list(df_str.columns) == ["0", "1"]
+    assert changed == {"0": 1, "1": 1}
+    assert df_str["0"].iloc[0] != "alice@example.com"
+
+    # Integer columns with integer column specifications
+    df_int2 = pd.DataFrame([["alice@example.com", "4111111111111111"]])
+    changed, _ = apply_strategy(df_int2, strategy="hash", columns=[0, 1])
+    assert list(df_int2.columns) == [0, 1]
+    assert changed == {"0": 1, "1": 1}
+    assert df_int2[0].iloc[0] != "alice@example.com"
+
+
+def test_remediate_dataframe_normalizes_columns_to_strings(tmp_path):
+    df = pd.DataFrame([["alice@example.com", "4111111111111111"]])
+    out = tmp_path / "out.csv"
+    res = remediate(df, out, strategy="hash")
+    assert res.rows == 1
+    assert "0" in res.columns_changed
+    assert "1" in res.columns_changed
+    assert list(df.columns) == [0, 1]
+    assert all(isinstance(c, int) for c in df.columns)
+    remediated = pd.read_csv(out)
+    assert list(remediated.columns) == ["0", "1"]
+    assert all(isinstance(c, str) for c in remediated.columns)
+
+
+def test_remediate_dataframe_with_negative_integer_column(tmp_path):
+    df = pd.DataFrame([["alice@example.com"]])
+    df.columns = [-1]
+    out = tmp_path / "out.csv"
+    res = remediate(df, out, strategy="hash")
+    assert "-1" in res.columns_changed
+    assert list(df.columns) == [-1]
+    assert pd.api.types.is_integer_dtype(df.columns)
+    remediated = pd.read_csv(out)
+    assert list(remediated.columns) == ["-1"]
+    assert remediated["-1"].iloc[0] != "alice@example.com"
+
+
+def test_remediate_frame_with_negative_integer_column():
+    df = pd.DataFrame([["alice@example.com"]])
+    df.columns = [-1]
+    changed, _ = remediate_frame(df, strategy="hash")
+    assert list(df.columns) == [-1]
+    assert pd.api.types.is_integer_dtype(df.columns)
+    assert changed == {"-1": 1}
+    assert df[-1].iloc[0] != "alice@example.com"
+
+
+def test_apply_strategy_preserves_null_values():
+    df = pd.DataFrame(
+        {
+            "email": ["alice@example.com", None, float("nan")],
+            "phone": ["+49 170 1234567", None, ""],
+            "age": [25, None, float("nan")],
+            "date": ["1990-01-01", None, float("nan")],
+        }
+    )
+    changed, _ = apply_strategy(
+        df,
+        strategy="hash",
+        columns=["email"],
+    )
+    assert changed == {"email": 1}
+    assert df["email"].iloc[0] != ""
+    assert df["email"].iloc[1] == ""
+    assert df["email"].iloc[2] == ""
+
+    changed_redact, _ = apply_strategy(df, strategy="redact", columns=["phone"])
+    assert changed_redact == {"phone": 1}
+    assert df["phone"].iloc[0] != ""
+    assert df["phone"].iloc[1] == ""
+    assert df["phone"].iloc[2] == ""
+
+    changed_gen, _ = apply_strategy(df, strategy="generalise", columns=["age"], bucket_size=10)
+    assert changed_gen == {"age": 1}
+    assert df["age"].iloc[0] == "20-29"
+    assert df["age"].iloc[1] == ""
+    assert df["age"].iloc[2] == ""
+
+    changed_shift, _ = apply_strategy(df, strategy="date-shift", columns=["date"], shift_days=30)
+    assert changed_shift == {"date": 1}
+    assert df["date"].iloc[0] == "1990-01-31"
+    assert df["date"].iloc[1] == ""
+    assert df["date"].iloc[2] == ""
+
+    df_null = pd.DataFrame({"email": ["alice@example.com", None, ""]})
+    changed_null, _ = apply_strategy(df_null, strategy="null", columns=["email"])
+    assert changed_null == {"email": 1}
+    assert (df_null["email"] == "").all()
+
+
+def test_remediate_frame_preserves_null_values():
+    df = pd.DataFrame({"email": ["alice@example.com", None, float("nan")]})
+    changed, _ = remediate_frame(df, strategy="redact")
+    assert changed == {"email": 1}
+    assert df["email"].iloc[0] == "a***************m"
+    assert df["email"].iloc[1] == ""
+    assert df["email"].iloc[2] == ""
+

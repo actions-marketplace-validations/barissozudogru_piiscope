@@ -63,6 +63,33 @@ class TestScanFormats:
         headers = [line for line in lines if line.startswith("source,file")]
         assert len(headers) == 1, "CSV header should only appear once"
 
+    def test_directory_scan_table_output_file(self, tmp_path):
+        d = tmp_path / "data"
+        d.mkdir()
+        (d / "a.csv").write_text("email\na@example.com\n")
+        out = tmp_path / "nested" / "report.txt"
+        result = _invoke("scan", str(d), "--format", "table", "-o", str(out))
+        assert result.exit_code == 0
+        assert out.exists()
+        content = out.read_text(encoding="utf-8")
+        assert "Directory scan:" in content
+        assert "a.csv" in content
+        assert result.output == ""
+
+    def test_directory_scan_table_output_file_verbose(self, tmp_path):
+        d = tmp_path / "data"
+        d.mkdir()
+        (d / "a.csv").write_text("email\na@example.com\n")
+        out = tmp_path / "report_verbose.txt"
+        result = _invoke("scan", str(d), "--format", "table", "-v", "-o", str(out))
+        assert result.exit_code == 0
+        assert out.exists()
+        content = out.read_text(encoding="utf-8")
+        assert "Directory scan:" in content
+        assert "Findings" in content
+        assert "email" in content
+        assert result.output == ""
+
     def test_table_output(self):
         result = _invoke("scan", str(SAMPLES / "medical_notes.csv"))
         assert result.exit_code == 0
@@ -155,6 +182,50 @@ class TestScanFormats:
         result = _invoke("scan", str(SAMPLES / "medical_notes.csv"), "--quiet")
         assert result.exit_code == 0
         assert result.output == ""
+
+    def test_quiet_json_format_prints_nothing(self):
+        result = _invoke("scan", str(SAMPLES / "medical_notes.csv"), "--format", "json", "--quiet")
+        assert result.exit_code == 0
+        assert result.output == ""
+
+    def test_quiet_csv_format_prints_nothing(self):
+        result = _invoke("scan", str(SAMPLES / "medical_notes.csv"), "--format", "csv", "--quiet")
+        assert result.exit_code == 0
+        assert result.output == ""
+
+    def test_quiet_markdown_format_prints_nothing(self):
+        result = _invoke(
+            "scan", str(SAMPLES / "medical_notes.csv"), "--format", "markdown", "--quiet"
+        )
+        assert result.exit_code == 0
+        assert result.output == ""
+
+    def test_quiet_sarif_format_prints_nothing(self):
+        result = _invoke("scan", str(SAMPLES / "medical_notes.csv"), "--format", "sarif", "--quiet")
+        assert result.exit_code == 0
+        assert result.output == ""
+
+    def test_quiet_directory_scan_json_prints_nothing(self):
+        result = _invoke("scan", str(SAMPLES), "--format", "json", "--quiet")
+        assert result.exit_code == 0
+        assert result.output == ""
+
+    def test_quiet_with_output_file_writes_file_and_prints_nothing(self, tmp_path):
+        out = tmp_path / "quiet_scan.json"
+        result = _invoke(
+            "scan",
+            str(SAMPLES / "medical_notes.csv"),
+            "--format",
+            "json",
+            "-o",
+            str(out),
+            "--quiet",
+        )
+        assert result.exit_code == 0
+        assert result.output == ""
+        assert out.exists()
+        payload = json.loads(out.read_text())
+        assert payload["rows"] == 4
 
     def test_sample_rows(self):
         result = _invoke(
@@ -440,11 +511,37 @@ class TestPatternsAndDoctor:
         # detector exists yet, so it never appears in the detector table
         assert "cpf" not in result.output
 
-    def test_doctor(self):
+    def test_doctor(self, monkeypatch):
+        import importlib.util
+
+        real_find_spec = importlib.util.find_spec
+
+        def mock_find_spec(name, *args, **kwargs):
+            if name == "spacy":
+                return None
+            return real_find_spec(name, *args, **kwargs)
+
+        monkeypatch.setattr(importlib.util, "find_spec", mock_find_spec)
         result = _invoke("doctor")
         assert result.exit_code == 0
         assert "pandas" in result.output
         assert "pyarrow" in result.output
+        assert "pip install piiscope[nlp]" in result.output
+
+    def test_doctor_disabled_pyarrow(self, monkeypatch):
+        import importlib.util
+
+        real_find_spec = importlib.util.find_spec
+
+        def mock_find_spec(name, *args, **kwargs):
+            if name == "pyarrow":
+                return None
+            return real_find_spec(name, *args, **kwargs)
+
+        monkeypatch.setattr(importlib.util, "find_spec", mock_find_spec)
+        result = _invoke("doctor")
+        assert result.exit_code == 0
+        assert "pip install piiscope[parquet]" in result.output
 
 
 class TestCustomDictionary:

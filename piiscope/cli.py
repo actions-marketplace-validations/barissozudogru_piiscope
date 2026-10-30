@@ -337,6 +337,9 @@ def _emit(
             output.write_text(text + "\n", encoding="utf-8")
         return
 
+    if console.quiet:
+        return
+
     if text is not None:
         # plain print: rich would wrap long lines and corrupt the payload
         typer.echo(text)
@@ -448,7 +451,7 @@ def scan_cmd(
             if output:
                 output.parent.mkdir(parents=True, exist_ok=True)
                 output.write_text(out_text + "\n", encoding="utf-8")
-            else:
+            elif not quiet:
                 typer.echo(out_text)
         elif format == OutputFormat.table:
             table = Table(
@@ -466,10 +469,19 @@ def scan_cmd(
                     str(num_findings),
                     Text(r.risk.level.upper(), style=_LEVEL_STYLES[r.risk.level]),
                 )
-            console.print(table)
-            if verbose:
-                for r in file_results:
-                    _print_table(console, r)
+            if output is not None:
+                output.parent.mkdir(parents=True, exist_ok=True)
+                file_console = Console(file=output.open("w", encoding="utf-8"), width=120)
+                file_console.print(table)
+                if verbose:
+                    for r in file_results:
+                        _print_table(file_console, r)
+                file_console.file.close()
+            else:
+                console.print(table)
+                if verbose:
+                    for r in file_results:
+                        _print_table(console, r)
         else:
             _emit(console, file_results, format, output)
 
@@ -646,10 +658,10 @@ def doctor_cmd() -> None:
 
         table.add_row("pyarrow (parquet)", "enabled", f"v{pyarrow.__version__}")
     else:
-        table.add_row("pyarrow (parquet)", "disabled", "pip install piiscope[parquet]")
+        table.add_row("pyarrow (parquet)", "disabled", Text("pip install piiscope[parquet]"))
 
     if find_spec("spacy") is None:
-        table.add_row("spacy (nlp)", "disabled", "pip install piiscope[nlp]")
+        table.add_row("spacy (nlp)", "disabled", Text("pip install piiscope[nlp]"))
     else:
         import spacy
 
